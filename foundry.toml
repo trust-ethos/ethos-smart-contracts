@@ -1,0 +1,54 @@
+[profile.default]
+  src = "src"
+  out = "out"
+  libs = ["node_modules", "dependencies"]
+  # Per-file pragma: V2 = 0.8.33, shared = 0.8.26 || 0.8.33, legacy = 0.8.26
+  evm_version = "cancun"
+  optimizer = true
+  optimizer_runs = 200
+  # Required: EthosAttestation.sol hits "stack too deep" without it
+  via_ir = true
+  # Strip the metadata hash from the bytecode tail so identical source produces
+  # byte-identical bytecode regardless of file paths/comments. Required for
+  # CREATE2 cross-chain address parity (V2 contracts deploy via CreateX/Arachnid).
+  bytecode_hash = "none"
+  cbor_metadata = false
+  remappings = [
+    "@openzeppelin/contracts/=dependencies/@openzeppelin-contracts-5.4.0/",
+    "@openzeppelin/contracts-upgradeable/=dependencies/@openzeppelin-contracts-upgradeable-5.4.0/",
+    "@prb/math/=dependencies/@prb-math-4.1.0/",
+    "forge-std/=dependencies/forge-std-1.16.0/src/",
+  ]
+
+[fmt]
+  line_length = 120
+  tab_width = 2
+
+[lint]
+  lint_on_build = false
+  ignore = ["src/legacy/*.sol", "src/legacy/**/*.sol", "src/utils/Imports.sol", "test/*.sol", "test/**/*.sol"]
+  mixed_case_exceptions = ["ERC", "URI", "__gap"]
+  # Project conventions intentionally keep OZ-style initializer names, public getter ABI names,
+  # inline modifiers where extraction would add noise, and readable keccak256 calls over assembly.
+  exclude_lints = [
+    "asm-keccak256",
+    "mixed-case-function",
+    "screaming-snake-case-immutable",
+    "unwrapped-modifier-logic",
+  ]
+
+  [profile.default.model_checker]
+
+# Soldeer package manager
+# remappings_generate/regenerate must be false to preserve our custom
+# remappings above (Soldeer's auto format doesn't match our import paths)
+[soldeer]
+  remappings_generate = false
+  remappings_regenerate = false
+  remappings_location = "config"
+
+[dependencies]
+  "@openzeppelin-contracts" = "5.4.0"
+  "@openzeppelin-contracts-upgradeable" = "5.4.0"
+  "forge-std" = "1.16.0"
+  "@prb-math" = "4.1.0"
