@@ -15,7 +15,7 @@ and Soldeer lock data.
 
 | Guardian WHUF transfer lock review | September 2026                                                                                                                                  |
 | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| Report                             | [whitepaper.ethos.network](https://whitepaper.ethos.network/security/smart-contract-audits) · [local copy](audits/2026-09-guardian-whuf-lock-review.pdf) |
+| Report                             | [Guardian Audits repository](https://github.com/GuardianAudits/Audits/blob/main/Ethos%20Network/2026-09-25_Ethos_Network_WHUF_Transfer_Lock.pdf) · [local copy](audits/2026-09-guardian-whuf-lock-review.pdf) |
 | Review window                      | September 25, 2026                                                                                                                              |
 | Findings                           | 0 Critical · 0 High · 0 Medium · 0 Low · 5 Informational                                                                                        |
 | Audited commit                     | `92f8e0424235b228246451b6c0d53142bad458fd`                                                                                                      |
