@@ -8,6 +8,7 @@ import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/Messa
 import {EthosRewards} from "../src/EthosRewards.sol";
 import {EthosVouchV2} from "../src/EthosVouchV2.sol";
 import {EthosWhuffie} from "../src/EthosWhuffie.sol";
+import {WhuffieLockList} from "../src/WhuffieLockList.sol";
 import {AccessControlV2} from "../src/utils/AccessControlV2.sol";
 import {ContractAddressManager} from "../src/utils/ContractAddressManager.sol";
 import {
@@ -126,7 +127,11 @@ contract EthosReviewWhuffieLockWorkflowTest is Test {
 
     address signatureVerifier = vm.deployCode("SignatureVerifier.sol:SignatureVerifier");
 
-    whuffie = EthosWhuffie(_deployProxy(address(new EthosWhuffie())));
+    WhuffieLockList lockList = new WhuffieLockList(owner);
+    address[] memory locked = new address[](1);
+    locked[0] = vm.addr(AUTHOR_PRIVATE_KEY);
+    lockList.lock(locked);
+    whuffie = EthosWhuffie(_deployProxy(address(new EthosWhuffie(lockList))));
     whuffie.initialize(owner, address(cam), type(uint128).max);
 
     review = ILegacyReviewWorkflow(_deployProxy(vm.deployCode("EthosReview.sol:EthosReview")));

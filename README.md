@@ -13,6 +13,13 @@ and Soldeer lock data.
 | Findings                 | 0 Critical · 0 High · 5 Medium · 17 Low · 34 Informational                                                                                                                           |
 | Audited commit           | `2e16c17110929849d15dd1357a68d904c18ada23`                                                                                                                                           |
 
+| Guardian WHUF transfer lock review | September 2026                                                                                                                                  |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Report                             | [whitepaper.ethos.network](https://whitepaper.ethos.network/security/smart-contract-audits) · [local copy](audits/2026-09-guardian-whuf-lock-review.pdf) |
+| Review window                      | September 25, 2026                                                                                                                              |
+| Findings                           | 0 Critical · 0 High · 0 Medium · 0 Low · 5 Informational                                                                                        |
+| Audited commit                     | `92f8e0424235b228246451b6c0d53142bad458fd`                                                                                                      |
+
 Previous Ethos Sherlock contests:
 
 - https://github.com/sherlock-audit/2024-10-ethos-network
@@ -44,6 +51,8 @@ Solidity test suites:
 - `test/EthosVouchV2.t.sol`
 - `test/EthosVouchV2.invariant.t.sol`
 - `test/EthosWhuffie.t.sol`
+- `test/WhuffieLockList.t.sol`
+- `test/EthosReviewWhuffieLockWorkflow.t.sol`
 - `test/EthosMarket.t.sol`
 - `test/EthosMarket.invariant.t.sol`
 - `test/EthosMarketAdaptiveLMSR.t.sol`
@@ -62,6 +71,9 @@ Solidity test suites:
 - The expected signer is trusted to authorize only valid signed actions.
 - `ContractAddressManager` ownership and registered addresses are trusted.
 - The registered slasher address is trusted only for the intended slash/freeze flow.
+- The `WhuffieLockList` owner (the Ethos owner Safe) is trusted to add accounts to the
+  pre-listing lock list; the list is append-only. The token owner is trusted to end the
+  lock early.
 - UUPS upgrades are performed by the authorized owner through the intended proxy flow.
 - WHUF (`EthosWhuffie`) is the registered burnable token for V2 fee burns and claims.
 - Market and vouch flows assume configured ERC20 tokens behave as standard non-rebasing,

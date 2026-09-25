@@ -4,6 +4,8 @@ pragma solidity 0.8.33;
 import {Test} from "forge-std/Test.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
+import {EthosWhuffie} from "../../src/EthosWhuffie.sol";
+import {WhuffieLockList} from "../../src/WhuffieLockList.sol";
 import {AccessControlV2} from "../../src/utils/AccessControlV2.sol";
 import {SignatureVerifier} from "../../src/legacy/SignatureVerifier.sol";
 import {ContractAddressManager} from "../../src/utils/ContractAddressManager.sol";
@@ -50,6 +52,18 @@ abstract contract V2TestFixture is Test {
   /// @dev Deploys a UUPS proxy for the given implementation and returns the proxy address.
   function _deployProxy(address impl) internal returns (address) {
     return address(new ERC1967Proxy(impl, ""));
+  }
+
+  /// @dev Deploys an EthosWhuffie implementation bound to an empty lock list.
+  function _deployWhuffieImpl() internal returns (EthosWhuffie) {
+    return _deployWhuffieImpl(new address[](0));
+  }
+
+  /// @dev Deploys an EthosWhuffie implementation bound to a lock list of `locked`, owned by this contract.
+  function _deployWhuffieImpl(address[] memory locked) internal returns (EthosWhuffie) {
+    WhuffieLockList list = new WhuffieLockList(address(this));
+    list.lock(locked);
+    return new EthosWhuffie(list);
   }
 
   /// @dev Signs a message hash with the fixture's signer key. Reusable by any
