@@ -16,17 +16,14 @@ import {
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 
 import {IContractAddressManager} from "./interfaces/IContractAddressManager.sol";
+import {IWhuffieLockList} from "./interfaces/IWhuffieLockList.sol";
 import {ArrayLengthMismatch, TransfersAlreadyUnlocked, TransfersLocked, ZeroAddress} from "./errors/WhuffieErrors.sol";
 import {ETHOS_REVIEW, ETHOS_VOUCH_V2} from "./utils/Constants.sol";
 
 /// @title EthosWhuffie
 /// @author Ethos Network
-/// @notice Capped ERC-20 currency token for Ethos v2.
-///         Ships in a transfer-locked state: holders cannot transfer until the owner
-///         calls unlockTransfers exactly once. While locked, mints and burns still flow,
-///         and transfers touching EthosVouchV2 or pulled by EthosReview into itself
-///         (any fee-charging entrypoint) are permitted through
-///         ContractAddressManager-resolved exemptions.
+/// @notice Capped ERC-20 currency token for Ethos v2. Senders on lockList are locked until
+///         UNLOCK_AT or an early owner unlockTransfers; EthosVouchV2 and EthosReview are exempt.
 /// @custom:security-contact security@ethos.network
 contract EthosWhuffie is
   ERC20Upgradeable,
@@ -39,8 +36,8 @@ contract EthosWhuffie is
 {
   // --- Constants ---
 
-  /// @notice Contract version for reinitializer tracking.
-  uint256 public constant VERSION = 1;
+  /// @notice Implementation version.
+  uint256 public constant VERSION = 2;
 
   /// @notice ERC-20 display name and EIP-712 permit domain name.
   string public constant TOKEN_NAME = "Whuffie";
@@ -48,10 +45,18 @@ contract EthosWhuffie is
   /// @notice ERC-20 display symbol.
   string public constant TOKEN_SYMBOL = "WHUF";
 
+  /// @notice Listing time, 2026-10-08 15:00 UTC. The first balance change at or after it unlocks everyone.
+  uint256 public constant UNLOCK_AT = 1_791_471_600;
+
+  // --- Immutables ---
+
+  /// @notice Locked senders. Immutable so the upgrade needs no initializer call.
+  IWhuffieLockList public immutable lockList;
+
   // --- Events ---
 
-  /// @notice Emitted once when the owner permanently unlocks transfers.
-  /// @param owner     The owner that unlocked transfers.
+  /// @notice Emitted once when transfers are permanently unlocked.
+  /// @param owner     The token owner.
   /// @param timestamp The block timestamp at which transfers were unlocked.
   event TransfersUnlocked(address indexed owner, uint256 timestamp);
 
@@ -60,7 +65,7 @@ contract EthosWhuffie is
   /// @notice Registry used to resolve launch-lock transfer exemptions.
   IContractAddressManager public contractAddressManager;
 
-  /// @notice True once the owner has permanently unlocked transfers. Cannot revert to false.
+  /// @notice True once transfers are permanently unlocked. Cannot revert to false.
   bool public transfersUnlocked;
 
   /// @dev Storage gap for future upgrades.
@@ -68,8 +73,11 @@ contract EthosWhuffie is
 
   // --- Constructor ---
 
-  /// @dev Disables initializers on the implementation contract.
-  constructor() {
+  /// @notice Deploys an implementation bound to a lock list.
+  /// @param lockList_ WhuffieLockList whose accounts stay locked until listing.
+  constructor(IWhuffieLockList lockList_) {
+    if (address(lockList_) == address(0)) revert ZeroAddress();
+    lockList = lockList_;
     _disableInitializers();
   }
 
@@ -131,9 +139,7 @@ contract EthosWhuffie is
   // --- Transfer lock administration ---
 
   /// @notice Permanently unlocks transfers. Callable exactly once by the owner.
-  /// @dev Intentionally takes no arguments and accepts no schedule. The contract is
-  ///      locked until the owner explicitly turns transfers on, removing schedule
-  ///      misconfiguration risk. There is no relock path.
+  /// @dev Early unlock ahead of UNLOCK_AT. There is no relock path.
   function unlockTransfers() external onlyOwner {
     if (transfersUnlocked) revert TransfersAlreadyUnlocked();
     transfersUnlocked = true;
@@ -142,25 +148,24 @@ contract EthosWhuffie is
 
   // --- Pause, lock, and cap enforcement ---
 
-  /// @dev Centralizes pause and transfer-lock on every balance change: mints, burns,
-  ///      and transfers all flow through _update, so gating here covers OZ's
-  ///      ERC20Burnable (burn/burnFrom) and plain transfers without per-function
-  ///      modifiers. While transfersUnlocked is false, only mints (from == 0), burns
-  ///      (to == 0), transfers where EthosVouchV2 is the sender or recipient, and
-  ///      EthosReview fee pulls into itself (any entrypoint, standalone or composite —
-  ///      indistinguishable at this layer) are permitted. Missing CAM registrations
-  ///      resolve to address(0), which does not exempt ordinary transfers.
+  /// @dev One gate for burns and transfers. An unregistered exemption name resolves to
+  ///      address(0) and exempts nothing.
   function _update(address from, address to, uint256 value)
     internal
     override(ERC20Upgradeable, ERC20CappedUpgradeable)
     whenNotPaused
   {
-    if (!transfersUnlocked && from != address(0) && to != address(0)) {
-      address vouch = contractAddressManager.getContractAddressForName(ETHOS_VOUCH_V2);
-      address review = contractAddressManager.getContractAddressForName(ETHOS_REVIEW);
-      bool isVouchTransfer = from == vouch || to == vouch;
-      bool isReviewFeePull = to == review && _msgSender() == review;
-      if (!isVouchTransfer && !isReviewFeePull) revert TransfersLocked(from, to);
+    if (!transfersUnlocked) {
+      if (block.timestamp >= UNLOCK_AT) {
+        transfersUnlocked = true;
+        emit TransfersUnlocked(owner(), UNLOCK_AT);
+      } else if (from != address(0) && to != address(0) && lockList.isLocked(from)) {
+        address vouch = contractAddressManager.getContractAddressForName(ETHOS_VOUCH_V2);
+        address review = contractAddressManager.getContractAddressForName(ETHOS_REVIEW);
+        bool isVouchTransfer = from == vouch || to == vouch;
+        bool isReviewFeePull = to == review && _msgSender() == review;
+        if (!isVouchTransfer && !isReviewFeePull) revert TransfersLocked(from, to);
+      }
     }
 
     super._update(from, to, value);

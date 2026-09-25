@@ -51,7 +51,7 @@ abstract contract MarketStackFixture is V2TestFixture, InteractionControlFixture
   function _deployStack(uint256 initialSupply) internal {
     _deployInfra();
 
-    whuffie = EthosWhuffie(_deployProxy(address(new EthosWhuffie())));
+    whuffie = EthosWhuffie(_deployProxy(address(_deployWhuffieImpl())));
     whuffie.initialize(_owner, address(_cam), _WHUFFIE_TOKEN_CAP);
     vm.prank(_owner);
     whuffie.unlockTransfers();
