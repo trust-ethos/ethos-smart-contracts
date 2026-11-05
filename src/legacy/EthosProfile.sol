@@ -35,17 +35,14 @@ import {EthosVouch} from "./EthosVouch.sol";
  * Key Features:
  * - Users can associate multiple addresses with a single profile ID, enabling participation from any wallet they own.
  * - Profiles are fully public and transparent, acting as a tool for others to verify on-chain activities and history.
- * - Implements an invite system for creating new profiles.
+ * - Any address can create a profile, with or without an invite.
  * - Supports the creation of "mock" profiles for tracking reviews and attestations without associated subjects.
  * - Allows users to archive and restore their profiles.
  *
  * Invite System:
- * - To create a profile on Ethos Network, a user's address must first be invited by an existing profile.
- * - The inviting profile must hold sufficient invites (distributed by admin).
- * - Upon receiving an invite, the user may accept it and create a profile.
- * - A user may receive multiple concurrent invites for the same address.
- * - The profile ID of the inviter is forever associated with the newly created profile.
- * - This system promotes responsible growth of the network and creates a chain of accountability among users.
+ * - Profiles can invite addresses to join.
+ * - An invited address names its inviter, whose ID is forever associated with the newly created profile.
+ * - An address without an invite passes inviter ID 0 and is recorded as its own inviter.
  *
  * Multiple Addresses:
  * - Users are encouraged to register different addresses with their profile ID.
@@ -172,11 +169,17 @@ contract EthosProfile is IEthosProfile, ITargetStatus, AccessControl, UUPSUpgrad
 
   /**
    * @dev Creates a new Ethos profile for the sender.
-   * @param inviterId Profile ID of the account that is inviting the new user
-   * @notice This function can only be called by an address that has been invited by an existing profile.
-   * The inviter must have available invites and their profile must be active.
+   * @param inviterId Profile ID of the inviter, or 0 to create a profile without an invite
+   * @notice With inviterId 0 the new profile is recorded as its own inviter, as profile 1 is.
+   * Any other inviterId requires a pending invite from that active profile.
    */
   function createProfile(uint256 inviterId) external whenNotPaused onlyNonCompromisedAddress(msg.sender) {
+    if (inviterId == 0) {
+      uint256 openID = _createProfile(msg.sender);
+      profiles[openID].inviteInfo.invitedBy = openID;
+      return;
+    }
+
     (bool inviteSenderVerified, bool inviteSenderArchived, bool inviteSenderIsMock) = profileStatusById(inviterId);
     if (!inviteSenderVerified || inviteSenderArchived || inviteSenderIsMock) {
       revert InvalidSender();

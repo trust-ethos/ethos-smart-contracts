@@ -14,6 +14,7 @@ import {
   MaxAddressesReached,
   MaxInvitesReached,
   ProfileAccess,
+  ProfileExists,
   ProfileExistsForAddress,
   ProfileNotFound,
   ProfileNotFoundForAddress
@@ -272,6 +273,40 @@ contract EthosProfileCoverageTest is Test {
     vm.prank(admin);
     vm.expectRevert(abi.encodeWithSelector(MaxAddressesReached.selector, 0));
     profile.setMaxAddresses(2049);
+  }
+
+  function test_createProfileWithoutInviteRecordsSelfAsInviter() public {
+    address alice = address(0xA11CE);
+
+    vm.prank(alice);
+    profile.createProfile(0);
+
+    uint256 aliceId = profile.verifiedProfileIdForAddress(alice);
+    assertEq(profile.getProfile(aliceId).inviteInfo.invitedBy, aliceId);
+    assertEq(profile.invitedIdsForProfile(1).length, 0);
+  }
+
+  function test_createProfileWithoutInviteRevertsForExistingProfile() public {
+    address alice = address(0xA11CE);
+    uint256 aliceId = _mintProfile(alice);
+
+    vm.prank(alice);
+    vm.expectRevert(abi.encodeWithSelector(ProfileExists.selector, aliceId));
+    profile.createProfile(0);
+  }
+
+  function test_createProfileWithoutInviteClaimsMockProfile() public {
+    address mockSubject = address(0xBEEF);
+    vm.prank(reviewCaller);
+    uint256 mockId = profile.incrementProfileCount(false, mockSubject, bytes32(0));
+    uint256 countBefore = profile.profileCount();
+
+    vm.prank(mockSubject);
+    profile.createProfile(0);
+
+    assertEq(profile.profileCount(), countBefore);
+    assertEq(profile.verifiedProfileIdForAddress(mockSubject), mockId);
+    assertEq(profile.getProfile(mockId).inviteInfo.invitedBy, mockId);
   }
 
   function test_profileRevertsForInvalidInvitesAndUnauthorizedMocks() public {
